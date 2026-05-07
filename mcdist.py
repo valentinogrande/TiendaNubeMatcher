@@ -3,6 +3,7 @@
 import difflib
 import json
 import math
+import os
 import re
 import signal
 import unicodedata
@@ -10,11 +11,14 @@ from collections import defaultdict
 from functools import lru_cache
 
 import requests
+from dotenv import load_dotenv
 from openpyxl import load_workbook
 
 # ============================================================
 # CONFIG
 # ============================================================
+
+load_dotenv()
 
 def signal_handler(sig, frame):
 
@@ -24,14 +28,14 @@ def signal_handler(sig, frame):
 
 signal.signal(signal.SIGINT, signal_handler)
 
-ACCESS_TOKEN = "e809b222306b2f94fcc0431c38147e2ca1dc9b5bad76e88c5bdb8a5f4ecfed04"
+ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
 
-STORE_ID = "5975004"
-USER_ID = "6191153"
+STORE_ID = os.getenv("STORE_ID")
+USER_ID = os.getenv("USER_ID")
 
-BASE_URL = "https://cirrus.tiendanube.com"
+BASE_URL = os.getenv("BASE_URL")
 
-LOCAL_FILE = "products.xlsx"
+LOCAL_FILE = os.getenv("LOCAL_FILE")
 
 AUTO_CONFIRM_SAFE = False
 
