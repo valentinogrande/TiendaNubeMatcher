@@ -4,6 +4,7 @@ import difflib
 import json
 import math
 import re
+import signal
 import unicodedata
 from collections import defaultdict
 from functools import lru_cache
@@ -14,6 +15,14 @@ from openpyxl import load_workbook
 # ============================================================
 # CONFIG
 # ============================================================
+
+def signal_handler(sig, frame):
+
+    print()
+    print(f"{YELLOW}Interrupted by user (CTRL+C){RESET}")
+    exit()
+
+signal.signal(signal.SIGINT, signal_handler)
 
 ACCESS_TOKEN = "e809b222306b2f94fcc0431c38147e2ca1dc9b5bad76e88c5bdb8a5f4ecfed04"
 
@@ -82,6 +91,7 @@ STOPWORDS = {
     "unidades",
     "pack",
     "u",
+    "uni",
 }
 
 # ============================================================
@@ -294,7 +304,23 @@ def tokenize(text):
 
     text = normalize(text)
 
-    return [t for t in text.split() if t not in STOPWORDS]
+    tokens = []
+
+    for t in text.split():
+
+        if t in STOPWORDS:
+            continue
+
+        t = re.sub(r"^(\d+)(?:kg|g|u|uni|unid|lt|l)$", r"\1", t, flags=re.I)
+
+        if len(t) > 4 and t.endswith("es"):
+            t = t[:-2]
+        elif len(t) > 3 and t.endswith("s"):
+            t = t[:-1]
+
+        tokens.append(t)
+
+    return tokens
 
 
 # ============================================================
@@ -375,7 +401,7 @@ def extract_structured_units(text):
     if g:
         result["g"] = float(g[0])
 
-    units = re.findall(r"x\s*(\d+)", t)
+    units = re.findall(r"\bx\s*(\d+(?:\.\d+)?)", t)
 
     if units:
         result["units"] = int(units[0])
@@ -404,153 +430,154 @@ def parse_xlsx_local_products(path):
 
     products = []
 
-    current_brand = ""
-
     wb = load_workbook(path, data_only=True)
 
-    # auto detect first visible sheet
-    ws = wb[wb.sheetnames[0]]
+    for sheet_name in wb.sheetnames:
 
-    for row in ws.iter_rows(values_only=True):
+        ws = wb[sheet_name]
 
-        values = [v for v in row if v is not None]
+        current_brand = ""
 
-        if not values:
-            continue
+        for row in ws.iter_rows(values_only=True):
 
-        # =====================================================
-        # HEADER DETECTION
-        # =====================================================
+            values = [v for v in row if v is not None]
 
-        first = str(values[0]).strip()
+            if not values:
+                continue
 
-        if (
-            isinstance(values[0], str)
-            and len(values) == 1
-            and len(first.split()) <= 4
-        ):
+            # =========================================================
+            # HEADER DETECTION
+            # =========================================================
 
-            current_brand = (
-                first.replace('"', "")
-                .replace(":", "")
-                .strip()
-                .lower()
-            )
+            first = str(values[0]).strip()
 
-            continue
+            if (
+                isinstance(values[0], str)
+                and len(values) == 1
+                and len(first.split()) <= 4
+            ):
 
-        # =====================================================
-        # PRICE
-        # =====================================================
+                current_brand = (
+                    first.replace('"', "")
+                    .replace(":", "")
+                    .strip()
+                    .lower()
+                )
 
-        price = None
+                continue
 
-        for v in reversed(values):
+            # =========================================================
+            # PRICE
+            # =========================================================
 
-            if isinstance(v, (int, float)) and v > 0:
+            price = None
 
-                # avoid weights interpreted as prices
-                if v < 100:
+            for v in reversed(values):
+
+                if isinstance(v, (int, float)) and v > 0:
+
+                    # avoid weights interpreted as prices
+                    if v < 100:
+                        continue
+
+                    price = int(v)
+                    break
+
+            if not price:
+                continue
+
+            # =========================================================
+            # TEXT PARTS
+            # =========================================================
+
+            seen = set()
+
+            text_parts = []
+
+            for v in values:
+
+                if isinstance(v, (int, float)):
                     continue
 
-                price = int(v)
-                break
+                s = str(v).strip()
 
-        if not price:
-            continue
+                if not s:
+                    continue
 
-        # =====================================================
-        # TEXT PARTS
-        # =====================================================
+                norm = normalize(s)
 
-        seen = set()
+                # remove duplicate columns
+                if norm in seen:
+                    continue
 
-        text_parts = []
+                seen.add(norm)
 
-        for v in values:
+                text_parts.append(s)
 
-            if isinstance(v, (int, float)):
+            if not text_parts:
                 continue
 
-            s = str(v).strip()
+            name = " ".join(text_parts)
 
-            if not s:
-                continue
+            # =========================================================
+            # CLEAN DUPLICATED PATTERNS
+            # =========================================================
 
-            norm = normalize(s)
+            name = re.sub(r"\bX KG\b\s+\bX KG\b", "X KG", name, flags=re.I)
 
-            # remove duplicate columns
-            if norm in seen:
-                continue
+            name = re.sub(r"\b(\d+)\s*KG\b\s+\1\s*KG\b", r"\1 KG", name, flags=re.I)
 
-            seen.add(norm)
+            name = re.sub(r"\s+", " ", name).strip()
 
-            text_parts.append(s)
+            normalized_name = normalize(name)
 
-        if not text_parts:
-            continue
+            # =========================================================
+            # EXPLICIT BRAND
+            # =========================================================
 
-        name = " ".join(text_parts)
+            explicit_brand = None
 
-        # =====================================================
-        # CLEAN DUPLICATED PATTERNS
-        # =====================================================
+            for brand in sorted(CRITICAL_BRANDS, key=len, reverse=True):
 
-        name = re.sub(r"\bX KG\b\s+\bX KG\b", "X KG", name, flags=re.I)
+                if normalize(brand) in normalized_name:
+                    explicit_brand = brand.lower()
+                    break
 
-        name = re.sub(r"\b(\d+)\s*KG\b\s+\1\s*KG\b", r"\1 KG", name, flags=re.I)
+            # =========================================================
+            # FALLBACK BRAND
+            # =========================================================
 
-        name = re.sub(r"\s+", " ", name).strip()
+            if current_brand in SECTION_HEADERS:
+                fallback_brand = ""
+            else:
+                fallback_brand = current_brand
 
-        normalized_name = normalize(name)
+            final_brand = explicit_brand or fallback_brand
 
-        # =====================================================
-        # EXPLICIT BRAND
-        # =====================================================
+            # =========================================================
+            # BUILD FULL NAME
+            # =========================================================
 
-        explicit_brand = None
+            if final_brand:
 
-        for brand in sorted(CRITICAL_BRANDS, key=len, reverse=True):
+                # avoid duplication:
+                # "oreo OREO..."
+                if normalize(final_brand) not in normalized_name:
+                    full_name = f"{final_brand} {name}".strip()
+                else:
+                    full_name = name
 
-            if normalize(brand) in normalized_name:
-                explicit_brand = brand.lower()
-                break
-
-        # =====================================================
-        # FALLBACK BRAND
-        # =====================================================
-
-        if current_brand in SECTION_HEADERS:
-            fallback_brand = ""
-        else:
-            fallback_brand = current_brand
-
-        final_brand = explicit_brand or fallback_brand
-
-        # =====================================================
-        # BUILD FULL NAME
-        # =====================================================
-
-        if final_brand:
-
-            # avoid duplication:
-            # "oreo OREO..."
-            if normalize(final_brand) not in normalized_name:
-                full_name = f"{final_brand} {name}".strip()
             else:
                 full_name = name
 
-        else:
-            full_name = name
-
-        products.append(
-            {
-                "brand": final_brand,
-                "name": full_name,
-                "raw_name": name,
-                "price": price,
-            }
-        )
+            products.append(
+                {
+                    "brand": final_brand,
+                    "name": full_name,
+                    "raw_name": name,
+                    "price": price,
+                }
+            )
 
     return products
 def parse_txt_local_products(path):
@@ -888,8 +915,10 @@ def compute_match(local, web):
     # PRICE
     # ========================================================
 
+    local_target = local["price"] * 1.07
+
     price_diff = percent_diff(
-        local["price"],
+        local_target,
         web["price"],
     )
 
@@ -990,7 +1019,7 @@ def build_matches(local_products, web_products):
 
         candidate_webs = category_index.get(local_cat, [])
 
-        if not candidate_webs:
+        if local_cat is None or not candidate_webs:
             candidate_webs = web_products
 
         for wi, web in enumerate(candidate_webs):
@@ -1164,7 +1193,7 @@ def main():
         for reason in result["reasons"]:
             print("  ", reason)
 
-        if local["price"] == web["price"]:
+        if int(local["price"] * 1.07) == web["price"]:
 
             print(f"{GREEN}Same price{RESET}")
 

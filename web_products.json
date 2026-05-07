@@ -1,5 +1,12 @@
 [
   {
+    "id": "342708780",
+    "variant_id": "1520142822",
+    "name": "Azucar pack 10u MatDulc",
+    "full_text": "Azucar pack 10u MatDulc azucar-pack-10u-matdulc-8qsr9 <p>Azucar pack 10u MatDulc</p> ",
+    "price": 11770
+  },
+  {
     "id": "340877198",
     "variant_id": "1514293122",
     "name": "Harina Lealtad cuadruple cero 0000 x 25 kg",
@@ -32,7 +39,7 @@
     "variant_id": "1471185542",
     "name": "Dulce de leche repostero Cremac 10kg",
     "full_text": "Dulce de leche repostero Cremac 10kg dulce-de-leche-repostero-cremac-10kg-27mlr <p>Dulce de leche repostero Cremac 10kg</p> ",
-    "price": 39220
+    "price": 34240
   },
   {
     "id": "330558936",
@@ -53,7 +60,7 @@
     "variant_id": "1471105904",
     "name": "Cerezas en almibar Chico B 10kg",
     "full_text": "Cerezas en almibar Chico B 10kg cerezas-en-almibar-chico-b-10kg-11nr6 <p>Cerezas en almibar Chico B 10kg</p> ",
-    "price": 60171
+    "price": 62060
   },
   {
     "id": "330557727",
@@ -74,21 +81,21 @@
     "variant_id": "1467959478",
     "name": "Cacao en polvo Gerkens 25kg",
     "full_text": "Cacao en polvo Gerkens 25kg cacao-en-polvo-25kg-htuqh <p>Cacao en polvo 25kg</p> ",
-    "price": 599000
+    "price": 599200
   },
   {
     "id": "329877584",
     "variant_id": "1467957467",
     "name": "Dulce de leche heladero Milkey 10kg",
     "full_text": "Dulce de leche heladero Milkey 10kg dulce-de-leche-heladero-milkey-10kg-egkk5 <p>Dulce de leche heladero Milkey 10kg</p> ",
-    "price": 36177
+    "price": 37450
   },
   {
     "id": "329876917",
     "variant_id": "1467953567",
     "name": "Vino Marsala 20lts",
     "full_text": "Vino Marsala 20lts vino-marsala-20lts-l26w2 <p>Vino Marsala 20lts</p> ",
-    "price": 118854
+    "price": 123103
   },
   {
     "id": "329845673",
@@ -480,7 +487,7 @@
     "variant_id": "1415134250",
     "name": "Postre de Mani Caviwa x 3kg",
     "full_text": "Postre de Mani Caviwa x 3kg postre-de-mani-caviwa-x-3kg-9py44  ",
-    "price": 34382
+    "price": 32763
   },
   {
     "id": "319215440",
@@ -523,6 +530,13 @@
     "name": "Budín marmolado Zupay",
     "full_text": "Budín marmolado Zupay budin-marmolado-zupay-moojd  ",
     "price": 981
+  },
+  {
+    "id": "314507880",
+    "variant_id": "1392893211",
+    "name": "Leche en Polvo Verónica entera x 25kg",
+    "full_text": "Leche en Polvo Verónica entera x 25kg leche-en-polvo-veronica-entera-x-25kg-xwb5t  ",
+    "price": 176550
   },
   {
     "id": "314343342",
@@ -1383,7 +1397,7 @@
     "variant_id": "1276619106",
     "name": "Dulce de leche CREMAC REPOSTERO 400g",
     "full_text": "Dulce de leche CREMAC REPOSTERO 400g dulce-de-leche-cremac-repostero-400g  ",
-    "price": 1908
+    "price": 2354
   },
   {
     "id": "285135098",
@@ -1663,28 +1677,28 @@
     "variant_id": "1175061801",
     "name": "Mini Rocklets x 9kg",
     "full_text": "Mini Rocklets x 9kg mini-rocklets-x-9kg  ",
-    "price": 194100
+    "price": 201181
   },
   {
     "id": "264840056",
     "variant_id": "1175061312",
     "name": "Rocklets x 10kg",
     "full_text": "Rocklets x 10kg rocklets-x-10kg  ",
-    "price": 219108
+    "price": 231655
   },
   {
     "id": "264840025",
     "variant_id": "1175061260",
     "name": "Kinder x 12kg",
     "full_text": "Kinder x 12kg kinder-x-12kg  ",
-    "price": 159030
+    "price": 186929
   },
   {
     "id": "264839948",
     "variant_id": "1175061052",
     "name": "Marroc x 14kg",
     "full_text": "Marroc x 14kg marroc-x-14kg  ",
-    "price": 203577
+    "price": 201481
   },
   {
     "id": "264839834",
@@ -1698,28 +1712,28 @@
     "variant_id": "1175059850",
     "name": "Salsa de Frutilla x 840gr",
     "full_text": "Salsa de Frutilla x 840gr salsa-de-frutilla-x-840gr  ",
-    "price": 3413
+    "price": 3531
   },
   {
     "id": "264839624",
     "variant_id": "1175059517",
     "name": "Salsa de Dulce De Leche x 840gr",
     "full_text": "Salsa de Dulce De Leche x 840gr salsa-de-dulce-de-leche-x-840gr  ",
-    "price": 4604
+    "price": 4772
   },
   {
     "id": "264839537",
     "variant_id": "1175059101",
     "name": "Salsa de Chocolate x 840gr",
     "full_text": "Salsa de Chocolate x 840gr salsa-de-chocolate-x-840gr  ",
-    "price": 5915
+    "price": 6131
   },
   {
     "id": "264839446",
     "variant_id": "1175058878",
     "name": "Salsa de Caramelo x 840gr",
     "full_text": "Salsa de Caramelo x 840gr salsa-de-caramelo-x-840gr  ",
-    "price": 3785
+    "price": 3926
   },
   {
     "id": "264839249",
@@ -1733,28 +1747,28 @@
     "variant_id": "1175057671",
     "name": "Pulpa de Frutilla Tamizada x 10kg",
     "full_text": "Pulpa de Frutilla Tamizada x 10kg pulpa-de-frutilla-tamizada-x-10kg  ",
-    "price": 22850
+    "price": 34775
   },
   {
     "id": "264838718",
     "variant_id": "1175057102",
     "name": "Frutilla Cubeteada para Sembrar x 10kg",
     "full_text": "Frutilla Cubeteada para Sembrar x 10kg frutilla-cubeteada-para-sembrar-x-10kg  ",
-    "price": 64914
+    "price": 67196
   },
   {
     "id": "264838373",
     "variant_id": "1175056478",
     "name": "Frutilla Entera Para Sembrar x 10kg",
     "full_text": "Frutilla Entera Para Sembrar x 10kg frutilla-entera-para-sembrar-x-10kg  ",
-    "price": 60404
+    "price": 62595
   },
   {
     "id": "264837836",
     "variant_id": "1175055507",
     "name": "Nueces Mariposas Ambarlight x kg",
     "full_text": "Nueces Mariposas Ambarlight x kg nueces-mariposas-ambarlight-x-kg  ",
-    "price": 16740
+    "price": 18083
   },
   {
     "id": "264837555",
@@ -1768,7 +1782,7 @@
     "variant_id": "1175054282",
     "name": "Simil Oreo \" DALE\" Rellena x 31kg",
     "full_text": "Simil Oreo \" DALE\" Rellena x 31kg simil-oreo-dale-rellena-x-31kg-dq9p2  ",
-    "price": 24831
+    "price": 25680
   },
   {
     "id": "264837168",
@@ -1782,42 +1796,42 @@
     "variant_id": "1175053238",
     "name": "Cucharita Europea x kg",
     "full_text": "Cucharita Europea x kg cucharita-europea-x-kg  ",
-    "price": 9393
+    "price": 8560
   },
   {
     "id": "264836727",
     "variant_id": "1175052826",
     "name": "Cucharita Sundae x kg",
     "full_text": "Cucharita Sundae x kg cucharita-sundae-x-kg  ",
-    "price": 9393
+    "price": 8560
   },
   {
     "id": "264836524",
     "variant_id": "1175052376",
     "name": "Cucharita Concava x kg",
     "full_text": "Cucharita Concava x kg cucharita-concava-x-kg  ",
-    "price": 9393
+    "price": 9737
   },
   {
     "id": "264836237",
     "variant_id": "1175051711",
     "name": "Cucharita Artesanal x kg",
     "full_text": "Cucharita Artesanal x kg cucharita-artesanal-x-kg  ",
-    "price": 9393
+    "price": 9737
   },
   {
     "id": "264835959",
     "variant_id": "1175051278",
     "name": "Cucharita Italiana Negra x kg",
     "full_text": "Cucharita Italiana Negra x kg cucharita-italiana-negra-x-kg  ",
-    "price": 9393
+    "price": 10807
   },
   {
     "id": "264835739",
     "variant_id": "1175050872",
     "name": "Cucharita Española Común x kg",
     "full_text": "Cucharita Española Común x kg cucharita-espanola-comun-x-kg  ",
-    "price": 9393
+    "price": 10807
   },
   {
     "id": "264811661",
@@ -1873,14 +1887,14 @@
     "variant_id": "1174959059",
     "name": "Cono Doble Pasta Erevan caja x 135U",
     "full_text": "Cono Doble Pasta Erevan caja x 135U cono-doble-pasta-erevan-caja-x-135u  ",
-    "price": 16126
+    "price": 16692
   },
   {
     "id": "264810835",
     "variant_id": "1174958735",
     "name": "Mini Cucuruchón Erevan caja x 280U",
     "full_text": "Mini Cucuruchón Erevan caja x 280U mini-cucuruchon-erevan-caja-x-280u-yclo4  ",
-    "price": 33945
+    "price": 33384
   },
   {
     "id": "264810638",
@@ -1908,7 +1922,7 @@
     "variant_id": "1190677037",
     "name": "Dulce de Leche Repostero San Ignacio x 10kg",
     "full_text": "Dulce de Leche Repostero San Ignacio x 10kg dulce-de-leche-repostero-san-ignacio-x-10kg  ",
-    "price": 48314
+    "price": 50076
   },
   {
     "id": "264809955",
@@ -1922,48 +1936,48 @@
     "variant_id": "1174955283",
     "name": "Dulce de Leche Para Sembrar San Ignacio x 10kg",
     "full_text": "Dulce de Leche Para Sembrar San Ignacio x 10kg dulce-de-leche-para-sembrar-san-ignacio-x-10kg  ",
-    "price": 47388
+    "price": 43827
   },
   {
     "id": "264809746",
     "variant_id": "1174954898",
     "name": "Dulce de Leche Heladero Santa María x 10kg",
     "full_text": "Dulce de Leche Heladero Santa María x 10kg dulce-de-leche-heladero-santa-maria-x-10kg  ",
-    "price": 39172
+    "price": 37450
   },
   {
     "id": "264809637",
     "variant_id": "1174954538",
     "name": "Dulce de Leche Heladero San Ignacio x 10kg",
     "full_text": "Dulce de Leche Heladero San Ignacio x 10kg dulce-de-leche-heladero-san-ignacio-x-10kg  ",
-    "price": 51940
+    "price": 52751
   },
   {
     "id": "264809222",
     "variant_id": "1174952646",
     "name": "Leche en Polvo Lucerito entera x 25kg",
     "full_text": "Leche en Polvo Lucerito entera x 25kg leche-en-polvo-lucerito-entera-x-25kg  ",
-    "price": 165075
+    "price": 171200
   },
   {
     "id": "264809010",
     "variant_id": "1174951831",
     "name": "Leche en Polvo Sancor entera x 25kg",
     "full_text": "Leche en Polvo Sancor entera x 25kg leche-en-polvo-sancor-entera-x-25kg  ",
-    "price": 219248
+    "price": 219350
   },
   {
     "id": "264808937",
     "variant_id": "1174951514",
     "name": "Leche en Polvo Cremac entera x 25kg",
     "full_text": "Leche en Polvo Cremac entera x 25kg leche-en-polvo-cremac-entera-x-25kg  ",
-    "price": 204414
+    "price": 211860
   },
   {
     "id": "264808848",
     "variant_id": "1174951149",
     "name": "Leche en Polvo Regina entera x 25kg",
     "full_text": "Leche en Polvo Regina entera x 25kg leche-en-polvo-regina-entera-x-25kg  ",
-    "price": 184791
+    "price": 201695
   }
 ]
