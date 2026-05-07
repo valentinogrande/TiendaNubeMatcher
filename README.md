@@ -1,4 +1,4 @@
-# mcdist
+# TIENDANUBEMATCHER
 
 Sincroniza precios de productos desde un xlsx local contra una tienda NubeCommerce.
 
@@ -20,7 +20,7 @@ Las columnas pueden variar por hoja; el parser detecta automáticamente valores 
 
 ## Configuración
 
-Variables en `mcdist.py`:
+Variables en `main.py`:
 
 | Variable | Descripción |
 |---|---|
@@ -47,7 +47,7 @@ Estados: `SAFE`, `REVIEW`, `BLOCKED`.
 ## Uso
 
 ```bash
-python3 mcdist.py
+python3 main.py
 ```
 
 El script pide confirmación antes de cada cambio de precio (excepto si `AUTO_CONFIRM_SAFE = True`).
