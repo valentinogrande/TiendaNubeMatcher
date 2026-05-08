@@ -1,17 +1,26 @@
 #!/usr/bin/env python3
 
+import base64
 import difflib
+import html
+import io
 import json
 import os
 import re
+import shutil
 import signal
+import subprocess
+import sys
+import tempfile
 import unicodedata
+import uuid
 from collections import defaultdict
 from functools import lru_cache
 
 import requests
 from dotenv import load_dotenv
 from openpyxl import load_workbook
+from PIL import Image
 
 # ============================================================
 # CONFIG
@@ -19,11 +28,13 @@ from openpyxl import load_workbook
 
 load_dotenv()
 
+
 def signal_handler(sig, frame):
 
     print()
     print(f"{YELLOW}Interrupted by user (CTRL+C){RESET}")
     exit()
+
 
 signal.signal(signal.SIGINT, signal_handler)
 
@@ -103,6 +114,7 @@ STOPWORDS = {
 
 
 CRITICAL_BRANDS = {
+    "de la huerta",
     "paladini",
     "fela",
     "sadia",
@@ -135,6 +147,7 @@ CRITICAL_BRANDS = {
     "bon o bon",
     "pronatte",
     "regio",
+    "elegante",
 }
 
 SECTION_HEADERS = {
@@ -297,6 +310,7 @@ def normalize(text):
 
     return text.strip()
 
+
 # ============================================================
 # TOKENIZE
 # ============================================================
@@ -428,6 +442,7 @@ def percent_diff(a, b):
 # PARSE LOCAL PRODUCTS
 # ============================================================
 
+
 def parse_xlsx_local_products(path):
 
     products = []
@@ -435,7 +450,8 @@ def parse_xlsx_local_products(path):
     wb = load_workbook(path, data_only=True)
 
     for sheet_name in wb.sheetnames:
-
+        if sheet_name == "Hoja1":
+            continue
         ws = wb[sheet_name]
 
         current_brand = ""
@@ -459,12 +475,7 @@ def parse_xlsx_local_products(path):
                 and len(first.split()) <= 4
             ):
 
-                current_brand = (
-                    first.replace('"', "")
-                    .replace(":", "")
-                    .strip()
-                    .lower()
-                )
+                current_brand = first.replace('"', "").replace(":", "").strip().lower()
 
                 continue
 
@@ -476,18 +487,60 @@ def parse_xlsx_local_products(path):
 
             for v in reversed(values):
 
-                if isinstance(v, (int, float)) and v > 0:
+                parsed = None
 
-                    # avoid weights interpreted as prices
+                # =====================================================
+                # NUMBERS
+                # =====================================================
+
+                if isinstance(v, (int, float)):
+
                     if v < 100:
                         continue
 
-                    price = int(v)
+                    parsed = int(round(v))
+
+                # =====================================================
+                # STRINGS
+                # =====================================================
+
+                elif isinstance(v, str):
+
+                    s = v.strip()
+
+                    if not re.search(r"\d", s):
+                        continue
+
+                    # remove currency
+                    s = s.replace("$", "")
+
+                    # remove spaces
+                    s = s.replace(" ", "")
+
+                    # 49,300.00
+                    if "," in s and "." in s:
+
+                        if s.rfind(",") < s.rfind("."):
+                            s = s.replace(",", "")
+
+                    # 49.300,00
+                    elif "," in s:
+
+                        s = s.replace(".", "")
+                        s = s.replace(",", ".")
+
+                    try:
+                        parsed = int(round(float(s)))
+                    except:
+                        continue
+
+                # =====================================================
+                # VALIDATE
+                # =====================================================
+
+                if parsed and parsed >= 100:
+                    price = parsed
                     break
-
-            if not price:
-                continue
-
             # =========================================================
             # TEXT PARTS
             # =========================================================
@@ -572,6 +625,9 @@ def parse_xlsx_local_products(path):
             else:
                 full_name = name
 
+            if price is None:
+                continue
+
             products.append(
                 {
                     "brand": final_brand,
@@ -582,6 +638,8 @@ def parse_xlsx_local_products(path):
             )
 
     return products
+
+
 def parse_txt_local_products(path):
 
     products = []
@@ -1079,6 +1137,18 @@ def build_matches(local_products, web_products):
         if i not in used_local:
             not_found.append(local)
 
+    for prod in not_found:
+
+        name_lower = prod["name"].lower()
+
+        prod["brand"] = ""
+
+        for brand in CRITICAL_BRANDS:
+
+            if brand.lower() in name_lower:
+                prod["brand"] = brand
+                break
+
     return matches, not_found
 
 
@@ -1107,6 +1177,620 @@ def patch_price(session, product_id, variant_id, new_price):
 
 
 # ============================================================
+# TERMINAL IMAGE DISPLAY
+# ============================================================
+
+TERM = os.environ.get("TERM", "")
+TERM_PROGRAM = os.environ.get("TERM_PROGRAM", "")
+
+
+def _supports_kitty() -> bool:
+    return "kitty" in TERM
+
+
+def _supports_iterm() -> bool:
+    return TERM_PROGRAM in ("iTerm.app", "WezTerm") or "iterm" in TERM.lower()
+
+
+def _supports_sixel() -> bool:
+    # chafa con sixel como último recurso si está instalado
+    return shutil.which("chafa") is not None
+
+
+def _print_kitty(data: bytes):
+    b64 = base64.standard_b64encode(data).decode()
+    # Kitty APC: chunk de hasta 4096 bytes
+    chunk = 4096
+    chunks = [b64[i : i + chunk] for i in range(0, len(b64), chunk)]
+    for idx, c in enumerate(chunks):
+        m = 1 if idx < len(chunks) - 1 else 0
+        first = idx == 0
+        if first:
+            header = f"\x1b_Ga=T,f=100,m={m};"
+        else:
+            header = f"\x1b_Gm={m};"
+        sys.stdout.buffer.write(f"{header}{c}\x1b\\".encode())
+    sys.stdout.buffer.write(b"\n")
+    sys.stdout.buffer.flush()
+
+
+def _print_iterm(data: bytes):
+    b64 = base64.standard_b64encode(data).decode()
+    length = len(data)
+    sys.stdout.buffer.write(
+        f"\x1b]1337;File=inline=1;size={length};width=40;height=20:{b64}\a\n".encode()
+    )
+    sys.stdout.buffer.flush()
+
+
+def _print_chafa(data: bytes):
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
+        f.write(data)
+        tmp = f.name
+    try:
+        subprocess.run(
+            ["chafa", "--size=40x20", tmp],
+            check=False,
+        )
+    finally:
+        os.unlink(tmp)
+
+
+def print_image_in_terminal(image_url: str) -> bool:
+    """
+    Descarga y renderiza la imagen en terminal.
+    Retorna True si logró mostrarla.
+    """
+    try:
+        r = requests.get(image_url, timeout=8)
+        r.raise_for_status()
+        data = r.content
+    except Exception as e:
+        print(f"{RED}  [IMG] No se pudo descargar: {e}{RESET}")
+        return False
+
+    if _supports_kitty():
+        _print_kitty(data)
+        return True
+    elif _supports_iterm():
+        _print_iterm(data)
+        return True
+    elif _supports_sixel():
+        _print_chafa(data)
+        return True
+    else:
+        print(f"{YELLOW}  [IMG] Terminal sin soporte gráfico. URL: {image_url}{RESET}")
+        return False
+
+
+# ============================================================
+# GOOGLE IMAGE SEARCH FALLBACK
+# ============================================================
+def open_google_images(query: str):
+    encoded = requests.utils.quote(query)
+    url = f"https://www.google.com/search?tbm=isch&q={encoded}"
+    import webbrowser
+
+    webbrowser.open(url)
+    print(f"{CYAN}  [IMG] Abriendo Google Images: {query!r}{RESET}")
+
+
+# ============================================================
+# IMAGE SEARCH  (OpenFoodFacts)
+# ============================================================
+def search_image(name: str, brand: str, barcode: str = "") -> str:
+    session = requests.Session()
+    session.headers.update({"User-Agent": "MCDistApp/1.0"})
+
+    clean_barcode = re.sub(r"\D", "", str(barcode))
+    if len(clean_barcode) >= 8:
+        url = f"https://world.openfoodfacts.org/api/v0/product/{clean_barcode}.json"
+        try:
+            r = session.get(url, timeout=8)
+            data = r.json()
+            if data.get("status") == 1:
+                prod = data.get("product", {})
+                img = prod.get("image_front_url") or prod.get("image_url", "")
+                if img:
+                    return img
+        except Exception:
+            pass
+
+    query = f"{name} {brand}".strip() if brand else name
+    encoded = requests.utils.quote(query)
+    search_url = (
+        "https://world.openfoodfacts.org/cgi/search.pl"
+        f"?search_terms={encoded}&search_simple=1&json=1&page_size=1"
+    )
+    try:
+        r = session.get(search_url, timeout=8)
+        data = r.json()
+        products = data.get("products", [])
+        if products:
+            p = products[0]
+            img = p.get("image_front_url") or p.get("image_url", "")
+            if img:
+                return img
+    except Exception:
+        pass
+
+    return ""
+
+
+# ============================================================
+# INSERT PROD
+# ============================================================
+
+INSERT_ENDPOINT = f"{BASE_URL}/v4/products?sync-refresh=true"
+IMAGE_UPLOAD_ENDPOINT = f"{BASE_URL}/v1/products/images/binary"
+LOCATION_ID = os.getenv("LOCATION_ID")  # 01JPMSFX3PD8JE5P3MK60P0Q5G
+
+
+def upload_image(image_url: str) -> int | None:
+    """
+    Descarga la imagen y la sube a Tiendanube como binario.
+    Retorna el id de imagen o None si falla.
+    """
+
+    try:
+        r = requests.get(image_url, timeout=8)
+        r.raise_for_status()
+        img_bytes = r.content
+        content_type = r.headers.get("Content-Type", "image/jpeg").split(";")[0]
+        ext_map = {
+            "image/jpeg": "jpg",
+            "image/jpg": "jpg",
+            "image/png": "png",
+            "image/webp": "webp",
+            "image/gif": "gif",
+        }
+        raw_filename = image_url.split("/")[-1].split("?")[0]
+        if "." in raw_filename:
+            filename = raw_filename
+        else:
+            ext = ext_map.get(content_type, "jpg")
+            filename = f"product.{ext}"
+
+        # Tiendanube no acepta webp → convertir a JPEG
+        if content_type == "image/webp" or filename.lower().endswith(".webp"):
+            print(f"{YELLOW}  [IMG] Converting webp to JPEG...{RESET}")
+            img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=90)
+            img_bytes = buf.getvalue()
+            content_type = "image/jpeg"
+            filename = filename.rsplit(".", 1)[0] + ".jpg"
+
+        print(
+            f"{YELLOW}  [IMG] Uploading: filename={filename!r} content_type={content_type!r} size={len(img_bytes)}{RESET}"
+        )
+    except Exception as e:
+        print(f"{RED}  [IMG] No se pudo descargar: {e}{RESET}")
+        return None
+
+    upload_headers = {k: v for k, v in HEADERS.items() if k.lower() != "content-type"}
+    session = requests.Session()
+    session.headers.update(upload_headers)
+    resp = session.post(
+        IMAGE_UPLOAD_ENDPOINT,
+        files={"file": (filename, img_bytes, content_type)},
+    )
+    if resp.status_code == 201:
+        img_id = int(resp.json()["id"])
+        print(f"{GREEN}  [IMG] Subida OK id={img_id}{RESET}")
+        return img_id
+    else:
+        print(
+            f"{RED}  [IMG] Error subiendo imagen {resp.status_code}: {resp.text}{RESET}"
+        )
+        return None
+
+
+# ============================================================
+# SEO ENGINE
+# ============================================================
+
+RE_KG = re.compile(r"(?i)(\d+(?:[\.,]\d+)?)\s*(kg|kilo|kilos)")
+RE_G = re.compile(r"(?i)(\d+(?:[\.,]\d+)?)\s*(g|gr|grs|gramos)")
+RE_L = re.compile(r"(?i)(\d+(?:[\.,]\d+)?)\s*(l|lt|lts|litro|litros)")
+RE_ML = re.compile(r"(?i)(\d+(?:[\.,]\d+)?)\s*(ml)")
+RE_CC = re.compile(r"(?i)(\d+(?:[\.,]\d+)?)\s*(cc)")
+RE_UNIT = re.compile(r"(?i)x\s*(\d+)\s*u")
+
+STOPWORDS = {
+    "x",
+    "de",
+    "del",
+    "la",
+    "el",
+    "en",
+    "y",
+    "con",
+    "para",
+    "por",
+    "al",
+    "las",
+    "los",
+}
+
+
+def normalize_seo(text: str) -> str:
+    return (
+        text.lower()
+        .replace("á", "a")
+        .replace("é", "e")
+        .replace("í", "i")
+        .replace("ó", "o")
+        .replace("ú", "u")
+        .replace("ñ", "n")
+        .replace("ü", "u")
+    )
+
+
+def clean_name(name: str) -> str:
+    out = []
+
+    for word in name.split():
+        lower = word.lower()
+
+        if lower in STOPWORDS:
+            out.append(lower)
+            continue
+
+        units = {
+            "kg": "Kg",
+            "gr": "Gr",
+            "g": "Gr",
+            "lt": "Lt",
+            "lts": "Lts",
+            "ml": "Ml",
+            "cc": "Cc",
+        }
+
+        if lower in units:
+            out.append(units[lower])
+            continue
+
+        out.append(lower.capitalize())
+
+    return " ".join(out)
+
+
+def extract_presentation(name: str):
+    n = name.lower()
+
+    patterns = [
+        (RE_KG, "Kg"),
+        (RE_G, "gr"),
+        (RE_ML, "ml"),
+        (RE_CC, "cc"),
+        (RE_L, "Lt"),
+    ]
+
+    for regex, unit in patterns:
+        m = regex.search(n)
+        if m:
+            return f"{m.group(1)} {unit}"
+
+    m = RE_UNIT.search(n)
+    if m:
+        return f"{m.group(1)} unidades"
+
+    if "pack" in n:
+        return "Pack"
+
+    if "caja" in n:
+        return "Caja"
+
+    return None
+
+
+def rubric_keywords(rubric: str) -> str:
+    r = rubric.lower()
+
+    if "aceite" in r:
+        return "aceite mayorista,aceite por mayor"
+    elif "gallet" in r:
+        return "galletitas mayorista,galletitas por mayor"
+    elif "chocolate" in r:
+        return "chocolate mayorista,chocolate para reposteria"
+    elif "bebida" in r:
+        return "bebidas mayorista,bebidas por mayor"
+    elif "snack" in r:
+        return "snacks mayorista,snacks por mayor"
+    else:
+        return "alimentos mayoristas,distribuidor de alimentos"
+
+
+def rubric_audience(rubric: str) -> str:
+    r = rubric.lower()
+
+    if "helado" in r:
+        return "heladerías artesanales y reposterías"
+
+    if "bebida" in r:
+        return "kioscos, almacenes y gastronomía"
+
+    if "snack" in r:
+        return "kioscos y autoservicios"
+
+    return "almacenes, y comercios"
+
+
+def rubric_use_case(rubric: str) -> str:
+    r = rubric.lower()
+
+    if "aceite" in r:
+        return "Ideal para fritura y gastronomía."
+
+    if "snack" in r:
+        return "Producto de alta rotación para kioscos."
+
+    if "bebida" in r:
+        return "Ideal para reventa en comercios."
+
+    return "Producto ideal para reventa y gastronomía."
+
+
+def generate_slug(name: str, brand: str) -> str:
+    base = f"{name} {brand}".strip()
+
+    slug = normalize_seo(base)
+
+    slug = re.sub(r"[^a-z0-9\s-]", "", slug)
+    slug = re.sub(r"\s+", "-", slug)
+    slug = re.sub(r"-+", "-", slug)
+
+    return slug.strip("-")
+
+
+def build_title(name: str, brand: str) -> str:
+    if brand:
+        title = f"{name} {brand} Precio Mayorista | MC Distribuidora"
+    else:
+        title = f"{name} Precio Mayorista | MC Distribuidora"
+
+    return title[:60]
+
+
+def build_description(name, brand, presentation, audience):
+    text = (
+        f"Comprá {name} {brand} {presentation or ''} "
+        f"al mejor precio mayorista. "
+        f"Envíos a todo el país. "
+        f"Ideal para {audience}."
+    )
+
+    return text[:155]
+
+
+def build_tags(name, brand, rubric):
+    tags = set()
+
+    tags.add(name.lower())
+
+    if brand:
+        tags.add(brand.lower())
+        tags.add(f"{name.lower()} {brand.lower()}")
+
+    tags.add(f"{name.lower()} mayorista")
+    tags.add(f"{name.lower()} precio")
+
+    extra = rubric_keywords(rubric)
+
+    for t in extra.split(","):
+        tags.add(t.strip())
+
+    final = []
+    total = 0
+
+    for tag in tags:
+        if total + len(tag) > 220:
+            break
+
+        final.append(tag)
+        total += len(tag)
+
+    return final
+
+
+def build_html_description(name, brand, presentation, rubric, audience, use_case):
+    name = html.escape(name)
+    brand = html.escape(brand)
+    rubric = html.escape(rubric)
+    audience = html.escape(audience)
+    use_case = html.escape(use_case)
+
+    presentation_html = ""
+
+    if presentation:
+        presentation_html = (
+            f"<li><strong>Presentación:</strong> " f"{html.escape(presentation)}</li>"
+        )
+
+    brand_html = ""
+
+    if brand:
+        brand_html = f"<li><strong>Marca:</strong> {brand}</li>"
+
+    return f"""
+<h2>{name} {brand}</h2>
+
+<p>
+Conseguí <strong>{name}</strong> al mejor precio mayorista.
+{use_case}
+</p>
+
+<h3>Características</h3>
+
+<ul>
+{brand_html}
+{presentation_html}
+<li><strong>Categoría:</strong> {rubric}</li>
+<li><strong>Envíos:</strong> A todo el país</li>
+<li><strong>Venta:</strong> Mayorista y minorista</li>
+</ul>
+
+<h3>Ideal para</h3>
+
+<p>{audience}</p>
+
+<p>
+<strong>MC Distribuidora</strong>
+</p>
+"""
+
+
+# ============================================================
+# INSERT SEO
+# ============================================================
+
+
+def insert_seo(product_id, prod_name, brand="", rubric="Varios"):
+    name_clean = clean_name(prod_name)
+
+    presentation = extract_presentation(prod_name)
+
+    audience = rubric_audience(rubric)
+
+    use_case = rubric_use_case(rubric)
+
+    seo_title = build_title(name_clean, brand)
+
+    seo_description = build_description(name_clean, brand, presentation, audience)
+
+    tags = build_tags(name_clean, brand, rubric)
+
+    html_description = build_html_description(
+        name_clean, brand, presentation, rubric, audience, use_case
+    )
+
+    slug = generate_slug(name_clean, brand)
+
+    payload = {
+        "seo_title": {
+            "es": seo_title,
+            "default": seo_title,
+        },
+        "seo_description": {
+            "es": seo_description,
+            "default": seo_description,
+        },
+        "brand": brand.lower(),
+        "tags": [{"tag": t} for t in tags[:10]],
+    }
+
+    url = f"{BASE_URL}/v4/products/{product_id}?sync-refresh=true"
+
+    session = requests.Session()
+
+    session.headers.update(HEADERS)
+
+    session.headers["x-idempotency-key"] = str(uuid.uuid4())
+
+    r = session.patch(url, json=payload)
+
+    if r.status_code in (200, 201):
+        print(f"{GREEN}[SEO] SEO OK{RESET}")
+    else:
+        print(f"{RED}[SEO] ERROR {r.status_code}:{RESET}")
+        print(r.text)
+
+
+def insert_prod(
+    prod_name: str, prod_price: int, brand: str = "", barcode: str = "", rubric="Varios"
+):
+    insert = input("Queres agregar producto? y/n ")
+    if insert != "y":
+        return
+    print(f"{BLUE}  [IMG] Buscando imagen para: {prod_name!r}...{RESET}")
+    image_url = search_image(prod_name, brand, barcode)
+
+    if image_url:
+        print(f"{GREEN}  [IMG] Encontrada:{RESET} {image_url}")
+        print_image_in_terminal(image_url)
+        answer = (
+            input(f"{YELLOW}  ¿Aceptar imagen? (y/n/g=Google): {RESET}").strip().lower()
+        )
+        if answer == "g":
+            open_google_images(f"{prod_name} {brand}".strip())
+            image_url = input(
+                f"{YELLOW}  Pegá la URL de la imagen (enter para ninguna): {RESET}"
+            ).strip()
+        elif answer != "y":
+            image_url = ""
+    else:
+        print(f"{YELLOW}  [IMG] No encontrada en OpenFoodFacts.{RESET}")
+        answer = (
+            input(f"{YELLOW}  ¿Buscar en Google Images? (y/n): {RESET}").strip().lower()
+        )
+        if answer == "y":
+            open_google_images(f"{prod_name} {brand}".strip())
+            image_url = input(
+                f"{YELLOW}  Pegá la URL de la imagen (enter para ninguna): {RESET}"
+            ).strip()
+
+    # --- subir imagen primero ---
+    image_id = None
+    if image_url:
+        image_id = upload_image(image_url)
+
+    if not image_id:
+        return
+
+    payload = {
+        "name": {"es": prod_name, "default": prod_name},
+        "description": {"default": ""},
+        "publish": True,
+        "variants": [
+            {
+                "price": float(int(prod_price) * 1.07),
+                "attributes": [],
+                "weight": 0,
+                "width": 0,
+                "height": 0,
+                "depth": 0,
+                "visible": True,
+                "order": 1,
+                "inventory_levels": [{"location_id": LOCATION_ID, "stock": None}],
+                "cost": 0,
+                "promotional_price": 0,
+                "metafields": [],
+            }
+        ],
+    }
+    if image_id:
+        payload["images"] = [{"id": image_id, "order": 0, "alt": {"default": ""}}]
+
+    session = requests.Session()
+    session.headers.update(HEADERS)
+    session.headers["x-idempotency-key"] = str(uuid.uuid4())
+    r = session.post(INSERT_ENDPOINT, json=payload)
+    if not r.status_code in (200, 201):
+        print(f"{RED}  [INSERT] Error {r.status_code}: {r.text}{RESET}")
+        return None
+
+    data = r.json()
+
+    product_id = data["id"]
+
+    print(f"{GREEN}[INSERT] OK id={product_id}{RESET}")
+
+    # ========================================================
+    # AUTO SEO INSERT
+    # ========================================================
+
+    insert_seo(
+        product_id=product_id,
+        prod_name=prod_name,
+        brand=brand,
+        rubric=rubric,
+    )
+
+    return product_id
+
+
+# ===========================================================
 # MAIN
 # ============================================================
 
@@ -1159,7 +1843,11 @@ def main():
 
     for p in not_found:
 
-        print(f"{RED}NOT FOUND:{RESET} " f"{p['name']} " f"${p['price']}")
+        print(
+            f"{RED}NOT FOUND:{RESET} " f"{p['name']} " f"${p['price']}" f"${p['brand']}"
+        )
+
+        insert_prod(p["name"], p["price"], p["brand"])
 
     print()
 
@@ -1218,10 +1906,6 @@ def main():
             continue
 
         print(f"{BLUE}Updating:{RESET} " f"${web['price']} -> ${local['price']}")
-
-        # ====================================================
-        # ENABLE WHEN READY
-        # ====================================================
 
         status, text = patch_price(
             session,
